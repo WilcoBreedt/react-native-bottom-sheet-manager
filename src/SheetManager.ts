@@ -270,9 +270,10 @@ export const PrivateSheetManager = {
 
     instances[key] = instance;
 
-    if (keys.indexOf(key) === -1) {
-      keys.push(key);
+    if (key.indexOf(key) > -1) {
+      keys.splice(keys.indexOf(key), 1);
     }
+    keys.push(key);
   },
   unregisterInstance(id: string, context: string): void {
     const key = makeKey(id, context);
