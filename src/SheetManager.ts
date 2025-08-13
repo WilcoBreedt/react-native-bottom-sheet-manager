@@ -270,7 +270,7 @@ export const PrivateSheetManager = {
 
     instances[key] = instance;
 
-    if (key.indexOf(key) > -1) {
+    if (keys.indexOf(key) > -1) {
       keys.splice(keys.indexOf(key), 1);
     }
     keys.push(key);
