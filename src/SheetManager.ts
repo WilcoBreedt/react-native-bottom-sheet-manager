@@ -2,17 +2,19 @@ import * as React from 'react';
 import EventManager from './EventManager';
 import { DEFAULT_CONTEXT_NAME } from './constants';
 import type {
+  BottomSheetInstance,
   SheetID,
   SheetIds,
-  SheetProps,
   SheetPayload,
+  SheetProps,
   SheetReturnValue,
-  BottomSheetInstance,
 } from './types';
 
 let keys: string[] = [];
 let contexts: string[] = [];
 let instances: Record<string, BottomSheetInstance> = {};
+let zIndexOrders: Record<string, number> = {};
+let zIndexCounter = 0;
 let sheetRegistry: Record<
   string,
   Record<string, React.ComponentType<SheetProps>>
@@ -33,26 +35,26 @@ function showSheet<Id extends SheetIds>(
   id: SheetID<Id>,
   ...args: SheetPayload<Id> extends never
     ? [
-        options?: {
-          /**
-           * Provide `context` of the `SheetManagerProvider` where you want to show the bottom sheet.
-           */
-          context?: string;
-        },
-      ]
+      options?: {
+        /**
+         * Provide `context` of the `SheetManagerProvider` where you want to show the bottom sheet.
+         */
+        context?: string;
+      },
+    ]
     : [
-        options: {
-          /**
-           * Any data to pass to the `BottomSheet`.
-           */
-          payload: SheetPayload<Id>;
+      options: {
+        /**
+         * Any data to pass to the `BottomSheet`.
+         */
+        payload: SheetPayload<Id>;
 
-          /**
-           * Provide `context` of the `SheetManagerProvider` where you want to show the bottom sheet.
-           */
-          context?: string;
-        },
-      ]
+        /**
+         * Provide `context` of the `SheetManagerProvider` where you want to show the bottom sheet.
+         */
+        context?: string;
+      },
+    ]
 ): Promise<SheetReturnValue<Id> | undefined>;
 function showSheet(...args: any[]) {
   const [id, options = {}] = args;
@@ -81,26 +83,26 @@ function hideSheet<Id extends SheetIds>(
   id: SheetID<Id>,
   ...args: SheetReturnValue<Id> extends never
     ? [
-        options?: {
-          /**
-           * Provide `context` of the `SheetManagerProvider` where you want to hide the bottom sheet.
-           */
-          context?: string;
-        },
-      ]
+      options?: {
+        /**
+         * Provide `context` of the `SheetManagerProvider` where you want to hide the bottom sheet.
+         */
+        context?: string;
+      },
+    ]
     : [
-        options: {
-          /**
-           * Return some data to the caller on closing the `BottomSheet`.
-           */
-          value: SheetReturnValue<Id>;
+      options: {
+        /**
+         * Return some data to the caller on closing the `BottomSheet`.
+         */
+        value: SheetReturnValue<Id>;
 
-          /**
-           * Provide `context` of the `SheetManagerProvider` where you want to hide the bottom sheet.
-           */
-          context?: string;
-        },
-      ]
+        /**
+         * Provide `context` of the `SheetManagerProvider` where you want to hide the bottom sheet.
+         */
+        context?: string;
+      },
+    ]
 ): Promise<SheetReturnValue<Id> | undefined>;
 function hideSheet(...args: any[]) {
   const [id, options = {}] = args;
@@ -227,7 +229,9 @@ const SheetManager = {
    * Hide all the opened BottomSheets.
    */
   hideAll(): void {
-    for (const key of keys) {
+    // Iterate over a snapshot to avoid issues if the array is mutated during iteration
+    const snapshot = [...keys];
+    for (const key of snapshot) {
       const [id, context] = key.split('.');
 
       if (id && context) {
@@ -242,6 +246,8 @@ export const PrivateSheetManager = {
     keys = [];
     contexts = [];
     instances = {};
+    zIndexOrders = {};
+    zIndexCounter = 0;
     sheetRegistry = {
       [DEFAULT_CONTEXT_NAME]: {},
     };
@@ -269,11 +275,12 @@ export const PrivateSheetManager = {
     const key = makeKey(id, context);
 
     instances[key] = instance;
+    // Track show order so the latest opened sheet always has highest zIndex
+    zIndexOrders[key] = DEFAULT_Z_INDEX + (++zIndexCounter);
 
-    if (keys.indexOf(key) > -1) {
-      keys.splice(keys.indexOf(key), 1);
+    if (keys.indexOf(key) === -1) {
+      keys.push(key);
     }
-    keys.push(key);
   },
   unregisterInstance(id: string, context: string): void {
     const key = makeKey(id, context);
@@ -301,13 +308,8 @@ export const PrivateSheetManager = {
   getSheetComponent,
   getSheetZIndex(id: string, context: string): number {
     const key = makeKey(id, context);
-    const index = keys.indexOf(key);
-
-    if (index > -1) {
-      return DEFAULT_Z_INDEX + index + 1;
-    }
-
-    return DEFAULT_Z_INDEX;
+    const zIndex = zIndexOrders[key] ?? DEFAULT_Z_INDEX;
+    return zIndex;
   },
 } as const;
 
